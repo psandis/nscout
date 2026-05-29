@@ -16,7 +16,7 @@ function resolveStatus(data: RdapResponse): CheckStatus {
   return "taken";
 }
 
-export async function checkRdap(name: string, tld: string, timeout: number): Promise<CheckResult> {
+export async function checkRdap(name: string, tld: string, timeout: number, retries = 1): Promise<CheckResult> {
   const registry = `domain:${tld}`;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeout);
@@ -26,7 +26,13 @@ export async function checkRdap(name: string, tld: string, timeout: number): Pro
     });
     clearTimeout(timer);
     if (res.status === 404) return { registry, status: "available" };
-    if (!res.ok) return { registry, status: "unknown", detail: `HTTP ${res.status}` };
+    if (!res.ok) {
+      if (retries > 0) {
+        await new Promise(r => setTimeout(r, DEFAULTS.rdapRetryDelayMs));
+        return checkRdap(name, tld, timeout, retries - 1);
+      }
+      return { registry, status: "unknown", detail: `HTTP ${res.status}` };
+    }
     const data = await res.json() as RdapResponse;
     return { registry, status: resolveStatus(data) };
   } catch (err) {

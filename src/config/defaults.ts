@@ -8,6 +8,7 @@ export const DEFAULTS = {
   limit: 10,
   style: "free",
   expiringThresholdDays: 30,
+  rdapRetryDelayMs: 600,
 };
 
 export const ENV = {
