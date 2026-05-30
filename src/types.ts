@@ -12,3 +12,15 @@ export interface NameResult {
   name: string;
   checks: CheckResult[];
 }
+
+export interface RunOptions {
+  registries: string[];
+  domains: string[];
+  concurrency: number;
+  timeout: number;
+}
+
+export interface RegistryAdapter {
+  readonly name: string;
+  check(name: string, options: RunOptions): Promise<CheckResult[]>;
+}

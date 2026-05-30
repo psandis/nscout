@@ -8,7 +8,7 @@ through the same check pipeline.
 
 ## Requirements
 
-- Node 22+
+- Node 24+
 - Optional: OpenAI or Anthropic API key for `--suggest` mode
 
 ## Install
@@ -26,7 +26,13 @@ pnpm install
 pnpm build
 ```
 
-Works with npm or yarn as well.
+**Before first use, create your `.env` file:**
+
+```bash
+cp .env.example .env
+```
+
+Edit `.env` to add API keys or change defaults. If no `.env` is found, nscout warns on startup and runs with built-in defaults.
 
 ## Quick start
 
@@ -36,10 +42,40 @@ Check names directly:
 nscout myapp mytool myproject
 ```
 
+Check only specific registries (e.g. a JS package — skip PyPI and domains):
+
+```bash
+nscout myapp mytool -r npm,github
+```
+
+Check with custom TLDs:
+
+```bash
+nscout myapp -d .com,.net,.ai
+```
+
+Show error details and expiry dates:
+
+```bash
+nscout myapp -v
+```
+
 AI-generate candidates from a description:
 
 ```bash
 nscout --suggest "image to ascii cli" --style claw
+```
+
+Combine explicit names with AI-generated candidates in one run:
+
+```bash
+nscout myapp --suggest "fast cli tool for images"
+```
+
+JSON output for scripting (no ANSI codes):
+
+```bash
+nscout myapp mytool --json --no-color
 ```
 
 Filter to fully available names with jq:
@@ -72,9 +108,9 @@ Each column is one registry. Each cell shows availability:
 ```
 name       npm  github  pypi  domain:.com  domain:.dev  domain:.io  domain:.sh
 ------------------------------------------------------------------------------
-nscout     ✓    ✗       ✗     ✗            ✓            ✓           ✓
 myapp      ✓    ✓       ✓     ✗            ✓            ✓           ✓
 mytool     ✗    ✓       ✓     ✓            ✓            ✓           ✓
+mylib      ✓    ✗       ✗     ✗            ✓            ✓           ✓
 
 legend: ✓ available   ✗ taken   ⚠ reserved   ⏳ expiring   ? unknown   ! error
 ```
@@ -93,7 +129,7 @@ Pass `-v` to show error details and expiry dates below the table.
 ## What it checks
 
 - **npm**: exact package match on the public registry
-- **GitHub**: global user and org namespace at `github.com/{name}`
+- **GitHub**: checks both user and organization namespaces at `github.com/{name}` — taken if either exists
 - **PyPI**: exact package match
 - **Domains via RDAP**: `.com`, `.dev`, `.io`, `.sh` by default
 
@@ -103,73 +139,96 @@ checkers collapse into one binary answer.
 
 ## AI suggest mode
 
-Configure your provider in `.env`:
-
-```bash
-cp .env.example .env
-# add OPENAI_API_KEY or ANTHROPIC_API_KEY
-```
-
-Then generate and check candidates in one command:
+Add your API key to `.env`, then generate and check candidates in one command:
 
 ```bash
 nscout --suggest "rss reader with AI digest" --style claw -n 8
 ```
 
-Without a key, `--suggest` falls back to a deterministic stub so the CLI still
-runs end-to-end. The provider adapter pattern supports any LLM: OpenAI, Anthropic,
-or any future provider registered via the adapter interface.
+Without a key, `--suggest` falls back to a deterministic stub and prints a warning
+to stderr. The CLI still runs end-to-end. The provider adapter pattern supports any
+LLM: OpenAI, Anthropic, or any future provider registered via the adapter interface.
 
 ## Configuration
 
-All configuration is through environment variables. Copy `.env.example` to `.env`.
+All configuration is through environment variables in `.env`. Copy `.env.example` to `.env` and edit as needed. All values have built-in defaults so only set what you want to change.
+
+### Registries
 
 | Variable | Default | What it does |
 |---|---|---|
-| `NSCOUT_AI_PROVIDER` | auto | Force a specific provider: `openai`, `anthropic`, or any registered adapter |
+| `NSCOUT_REGISTRIES` | `npm,github,pypi,domains` | Registries to check by default |
+| `NSCOUT_DOMAINS` | `.com,.dev,.io,.sh` | TLDs to check when domains registry is enabled |
+
+### Performance
+
+| Variable | Default | What it does |
+|---|---|---|
+| `NSCOUT_CONCURRENCY` | `4` | Number of names checked in parallel |
+| `NSCOUT_TIMEOUT` | `8000` | Per-request timeout in milliseconds |
+
+### AI suggest
+
+| Variable | Default | What it does |
+|---|---|---|
+| `NSCOUT_LIMIT` | `10` | Number of name candidates to generate with `--suggest` |
+| `NSCOUT_STYLE` | `free` | Default naming style: `free`, `claw`, `short`, `portmanteau` |
+| `NSCOUT_AI_MAX_TOKENS` | `512` | Maximum tokens returned by the AI provider |
+| `NSCOUT_AI_PROVIDER` | auto | Force a specific provider: `openai` or `anthropic`. Auto-selects if not set. |
 | `OPENAI_API_KEY` | | Enables OpenAI-backed suggestions |
 | `OPENAI_MODEL` | `gpt-4.1-mini` | OpenAI model ID |
 | `ANTHROPIC_API_KEY` | | Enables Anthropic-backed suggestions |
 | `ANTHROPIC_MODEL` | `claude-haiku-4-5-20251001` | Anthropic model ID |
-| `GITHUB_TOKEN` | | Raises GitHub rate limit from 60 to 5000 req/hr |
-| `PORT` | `3000` | Server port (roadmap) |
-| `HOST` | `localhost` | Server host (roadmap) |
+
+### GitHub
+
+| Variable | Default | What it does |
+|---|---|---|
+| `GITHUB_TOKEN` | | Raises GitHub API rate limit from 60 to 5000 req/hr |
+
+### RDAP (domain checks)
+
+| Variable | Default | What it does |
+|---|---|---|
+| `NSCOUT_RDAP_RETRY_COUNT` | `1` | Retry attempts on non-404 RDAP errors |
+| `NSCOUT_RDAP_RETRY_DELAY_MS` | `600` | Delay in milliseconds between RDAP retries |
+| `NSCOUT_EXPIRING_THRESHOLD_DAYS` | `30` | Domains expiring within this many days show as expiring |
 
 ## Architecture
 
 nscout is built as a set of independent modules with no coupling between layers.
-Any consumer, CLI, server, or API, calls the same core functions directly.
 
 ```
 src/
-  registries/     pure check functions, no CLI or server awareness
+  registries/     pure registry adapters, no CLI awareness
+    adapters.ts   registry map: name -> RegistryAdapter
     index.ts      orchestrator, bounded concurrency
-    npm.ts        npm registry check
-    github.ts     GitHub namespace check
-    pypi.ts       PyPI registry check
-    rdap.ts       RDAP domain check, status-aware
+    npm.ts        npm adapter
+    github.ts     GitHub adapter, checks users + orgs
+    pypi.ts       PyPI adapter
+    rdap.ts       RDAP adapter, status-aware (available/taken/reserved/expiring)
   ai/
     suggest.ts    name generation entry point
-    registry.ts   provider adapter registry
+    registry.ts   provider adapter registry, auto-resolves available provider
     providers/    openai | anthropic | stub | any future adapter
   render/
     table.ts      terminal table with ANSI color
     json.ts       JSON output
   cli/
     index.ts      CLI entry point, Commander wiring
-  server/         (roadmap) HTTP server, same core functions
-  api/            (roadmap) REST API layer
   config/
-    defaults.ts   all defaults in one place, no hardcoded values in logic
+    defaults.ts   all defaults, URLs, symbols, and env vars in one place
+  types.ts        shared interfaces: RegistryAdapter, CheckResult, RunOptions, NameResult
 ```
 
 Design rules:
 
-- Registry checkers have no knowledge of the CLI or server layer.
-- CLI has no knowledge of the server layer.
-- All timeouts, TLDs, concurrency limits, AI provider, and model IDs come from config or environment variables.
+- All registry adapters implement `RegistryAdapter` from `types.ts`. Adding a new registry requires only a new file and one line in `adapters.ts`.
+- All hardcoded values live in `config/defaults.ts`: URLs, headers, symbols, retry counts, timeouts, AI token limits. Nothing is hardcoded in logic files.
+- All timeouts, TLDs, concurrency limits, AI provider, model IDs, and display symbols come from config or environment variables.
 - Each module is independently testable and independently usable.
-- Adding a server or API consumer does not require changes to core logic.
+- Unknown registry names passed via `--registries` print a warning to stderr and are skipped.
+- When no AI provider is configured, `--suggest` falls back to stub and warns to stderr.
 
 ## Notes on the lane
 

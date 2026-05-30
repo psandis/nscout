@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import { Command } from "commander";
 import { DEFAULTS } from "../config/defaults.js";
 import { run } from "../registries/index.js";
@@ -6,6 +8,10 @@ import { suggest } from "../ai/suggest.js";
 import { renderTable } from "../render/table.js";
 import { renderJson } from "../render/json.js";
 import type { Style } from "../types.js";
+
+if (!existsSync(join(process.cwd(), ".env"))) {
+  process.stderr.write("Warning: No .env file found. Copy .env.example to .env before running nscout.\n");
+}
 
 const program = new Command();
 
@@ -49,4 +55,7 @@ program
     }
   });
 
-program.parseAsync();
+program.parseAsync().catch((err: unknown) => {
+  process.stderr.write(`Error: ${err instanceof Error ? err.message : String(err)}\n`);
+  process.exit(1);
+});

@@ -26,6 +26,9 @@ function buildPrompt(description: string, style: Style, limit: number): string {
 
 export async function suggest(description: string, style: Style, limit: number): Promise<string[]> {
   const adapter = resolve(ENV.ai.provider);
+  if (adapter.name === "stub") {
+    process.stderr.write("Warning: No AI provider configured. Set OPENAI_API_KEY or ANTHROPIC_API_KEY.\n");
+  }
   const prompt = buildPrompt(description, style, limit);
   return adapter.complete(prompt, limit);
 }

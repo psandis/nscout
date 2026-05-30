@@ -1,5 +1,5 @@
 import type { ProviderAdapter } from "../types.js";
-import { ENV } from "../../config/defaults.js";
+import { ENV, DEFAULTS } from "../../config/defaults.js";
 
 export const anthropicAdapter: ProviderAdapter = {
   name: "anthropic",
@@ -9,7 +9,7 @@ export const anthropicAdapter: ProviderAdapter = {
     const client = new Anthropic({ apiKey: ENV.anthropic.apiKey });
     const res = await client.messages.create({
       model: ENV.anthropic.model,
-      max_tokens: 512,
+      max_tokens: DEFAULTS.aiMaxTokens,
       messages: [{ role: "user", content: prompt }],
     });
     const text = res.content.find(b => b.type === "text")?.text ?? "";

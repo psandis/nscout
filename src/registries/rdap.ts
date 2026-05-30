@@ -1,5 +1,5 @@
-import type { CheckResult, CheckStatus } from "../types.js";
-import { DEFAULTS } from "../config/defaults.js";
+import type { CheckResult, CheckStatus, RegistryAdapter, RunOptions } from "../types.js";
+import { DEFAULTS, REGISTRY_URLS } from "../config/defaults.js";
 
 interface RdapEvent { eventAction: string; eventDate: string; }
 interface RdapResponse { status?: string[]; events?: RdapEvent[]; }
@@ -16,15 +16,12 @@ function resolveStatus(data: RdapResponse): CheckStatus {
   return "taken";
 }
 
-export async function checkRdap(name: string, tld: string, timeout: number, retries = 1): Promise<CheckResult> {
+async function checkRdap(name: string, tld: string, timeout: number, retries: number): Promise<CheckResult> {
   const registry = `domain:${tld}`;
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeout);
   try {
-    const res = await fetch(`https://rdap.org/domain/${name}${tld}`, {
-      signal: controller.signal,
+    const res = await fetch(`${REGISTRY_URLS.rdap}/${name}${tld}`, {
+      signal: AbortSignal.timeout(timeout),
     });
-    clearTimeout(timer);
     if (res.status === 404) return { registry, status: "available" };
     if (!res.ok) {
       if (retries > 0) {
@@ -36,7 +33,13 @@ export async function checkRdap(name: string, tld: string, timeout: number, retr
     const data = await res.json() as RdapResponse;
     return { registry, status: resolveStatus(data) };
   } catch (err) {
-    clearTimeout(timer);
     return { registry, status: "error", detail: err instanceof Error ? err.message : String(err) };
   }
 }
+
+export const rdapAdapter: RegistryAdapter = {
+  name: "domains",
+  check(name: string, options: RunOptions): Promise<CheckResult[]> {
+    return Promise.all(options.domains.map(tld => checkRdap(name, tld, options.timeout, DEFAULTS.rdapRetryCount)));
+  },
+};

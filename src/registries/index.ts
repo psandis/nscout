@@ -1,31 +1,25 @@
-import type { NameResult, CheckResult } from "../types.js";
-import { checkNpm } from "./npm.js";
-import { checkGithub } from "./github.js";
-import { checkPypi } from "./pypi.js";
-import { checkRdap } from "./rdap.js";
+import type { NameResult, RunOptions, RegistryAdapter } from "../types.js";
+import { ADAPTERS } from "./adapters.js";
 
-export interface RunOptions {
-  registries: string[];
-  domains: string[];
-  concurrency: number;
-  timeout: number;
-}
+export type { RunOptions };
 
 async function checkName(name: string, options: RunOptions): Promise<NameResult> {
-  const { registries, domains, timeout } = options;
-  const tasks: Array<() => Promise<CheckResult>> = [];
+  const tasks = options.registries
+    .map(r => ADAPTERS.get(r))
+    .filter((a): a is RegistryAdapter => a !== undefined)
+    .map(a => a.check(name, options));
 
-  if (registries.includes("npm"))     tasks.push(() => checkNpm(name, timeout));
-  if (registries.includes("github"))  tasks.push(() => checkGithub(name, timeout));
-  if (registries.includes("pypi"))    tasks.push(() => checkPypi(name, timeout));
-  if (registries.includes("domains")) {
-    for (const tld of domains) tasks.push(() => checkRdap(name, tld, timeout));
-  }
-
-  return { name, checks: await Promise.all(tasks.map(t => t())) };
+  const results = await Promise.all(tasks);
+  return { name, checks: results.flat() };
 }
 
 export async function run(names: string[], options: RunOptions): Promise<NameResult[]> {
+  for (const r of options.registries) {
+    if (!ADAPTERS.has(r)) {
+      process.stderr.write(`Warning: Unknown registry "${r}" skipped.\n`);
+    }
+  }
+
   const results: NameResult[] = new Array(names.length);
   let cursor = 0;
 

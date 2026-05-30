@@ -1,19 +1,11 @@
 import chalk from "chalk";
 import type { NameResult, CheckStatus } from "../types.js";
+import { TABLE_SYMBOLS, TABLE_LEGEND } from "../config/defaults.js";
 
 export interface RenderOptions {
   verbose?: boolean;
   color?: boolean;
 }
-
-const SYMBOLS: Record<CheckStatus, string> = {
-  available: "✓",
-  taken:     "✗",
-  reserved:  "⚠",
-  expiring:  "⏳",
-  unknown:   "?",
-  error:     "!",
-};
 
 function colorize(status: CheckStatus, symbol: string): string {
   switch (status) {
@@ -40,7 +32,7 @@ export function renderTable(results: NameResult[], options: RenderOptions = {}):
   const useColor = options.color !== false;
   const verbose = options.verbose ?? false;
 
-  const registries = results[0].checks.map(c => c.registry);
+  const registries = [...new Set(results.flatMap(r => r.checks.map(c => c.registry)))];
   const nameWidth = Math.max("name".length, ...results.map(r => r.name.length));
   const colWidths = registries.map(r => r.length);
 
@@ -52,16 +44,18 @@ export function renderTable(results: NameResult[], options: RenderOptions = {}):
   const divider = "-".repeat(header.length);
 
   const rows = results.map(result => {
-    const cells = result.checks.map((check, i) => {
-      const symbol = SYMBOLS[check.status];
+    const checkMap = new Map(result.checks.map(c => [c.registry, c]));
+    const cells = registries.map((reg, i) => {
+      const check = checkMap.get(reg);
+      if (!check) return pad("-", colWidths[i]);
+      const symbol = TABLE_SYMBOLS[check.status];
       const cell = useColor ? colorize(check.status, symbol) : symbol;
       return pad(cell, colWidths[i]);
     });
     return [pad(result.name, nameWidth), ...cells].join("  ");
   });
 
-  const legend =
-    "legend: ✓ available   ✗ taken   ⚠ reserved   ⏳ expiring   ? unknown   ! error";
+  const legend = TABLE_LEGEND;
 
   const lines = [header, divider, ...rows, "", legend];
 
