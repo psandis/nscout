@@ -1,7 +1,7 @@
 import "dotenv/config";
 
 export const DEFAULTS = {
-  registries:            (process.env.NSCOUT_REGISTRIES            || "npm,github,pypi,domains").split(","),
+  registries:            (process.env.NSCOUT_REGISTRIES            || "npm,github,pypi,domains,dockerhub").split(","),
   domains:               (process.env.NSCOUT_DOMAINS               || ".com,.dev,.io,.sh").split(","),
   concurrency:           Number(process.env.NSCOUT_CONCURRENCY            || 4),
   timeout:               Number(process.env.NSCOUT_TIMEOUT                || 8_000),
@@ -19,6 +19,7 @@ export const REGISTRY_URLS = {
   githubOrgs: "https://api.github.com/orgs",
   pypi:       "https://pypi.org/pypi",
   rdap:       "https://rdap.org/domain",
+  dockerHub:  "https://hub.docker.com/v2/repositories/library",
 } as const;
 
 export const GITHUB_HEADERS = {

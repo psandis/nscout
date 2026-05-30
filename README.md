@@ -131,6 +131,7 @@ Pass `-v` to show error details and expiry dates below the table.
 - **npm**: exact package match on the public registry
 - **GitHub**: checks both user and organization namespaces at `github.com/{name}` — taken if either exists
 - **PyPI**: exact package match
+- **Docker Hub**: checks official library namespace at `hub.docker.com/r/library/{name}`
 - **Domains via RDAP**: `.com`, `.dev`, `.io`, `.sh` by default
 
 All checks run in parallel per name. Names run with bounded concurrency. RDAP
@@ -157,7 +158,7 @@ All configuration is through environment variables in `.env`. Copy `.env.example
 
 | Variable | Default | What it does |
 |---|---|---|
-| `NSCOUT_REGISTRIES` | `npm,github,pypi,domains` | Registries to check by default |
+| `NSCOUT_REGISTRIES` | `npm,github,pypi,domains,dockerhub` | Registries to check by default |
 | `NSCOUT_DOMAINS` | `.com,.dev,.io,.sh` | TLDs to check when domains registry is enabled |
 
 ### Performance
@@ -240,8 +241,7 @@ focused, and the AI suggest mode is the headline that differentiates it.
 
 ## Roadmap
 
-- [ ] Optional: route `src/ai/suggest.ts` through **psclawmcp** instead of direct provider calls.
-- [ ] Docker Hub check (`hub.docker.com/v2/repositories/library/{name}`).
+- [x] Docker Hub check.
 - [ ] VS Code Marketplace check.
 - [ ] Homebrew tap availability.
 - [ ] Premium-domain detection (would need a paid API like Domainr).
