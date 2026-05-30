@@ -195,6 +195,41 @@ All configuration is through environment variables in `.env`. Copy `.env.example
 | `NSCOUT_RDAP_RETRY_DELAY_MS` | `600` | Delay in milliseconds between RDAP retries |
 | `NSCOUT_EXPIRING_THRESHOLD_DAYS` | `30` | Domains expiring within this many days show as expiring |
 
+### Web UI
+
+| Variable | Default | What it does |
+|---|---|---|
+| `PORT` | `3000` | Port for the nscout-ui web server |
+| `NSCOUT_BIN` | `nscout` | Path to the nscout binary. Use `node ../dist/cli/index.js` if not installed globally |
+
+## Web UI
+
+nscout includes a web interface in the `ui/` folder. It calls the nscout CLI and displays results in the browser.
+
+### Requirements
+
+- nscout built or installed globally
+- `.env` configured (same file as CLI)
+
+### Start
+
+```bash
+cd ui
+pnpm install
+pnpm build
+pnpm tsx server.ts
+```
+
+Open `http://localhost:3000`.
+
+In development (live reload):
+
+```bash
+pnpm dev
+```
+
+The UI runs on the port set in `PORT` (default 3000). The server spawns `nscout --json` and returns results to the browser.
+
 ## Architecture
 
 nscout is built as a set of independent modules with no coupling between layers.
