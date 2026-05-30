@@ -1,2 +1,5 @@
+packages:
+  - ui
+
 ignoredBuiltDependencies:
   - esbuild
