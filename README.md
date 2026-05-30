@@ -243,9 +243,7 @@ focused, and the AI suggest mode is the headline that differentiates it.
 
 - [x] Docker Hub check.
 - [ ] VS Code Marketplace check.
-- [ ] Homebrew tap availability.
-- [ ] Premium-domain detection (would need a paid API like Domainr).
-- [ ] Watch mode: poll an expiring domain until it frees up.
+
 
 ## OpenClaw
 
@@ -258,7 +256,7 @@ The `--json` output makes nscout agent-friendly: structured results that any
 agent or script can parse and act on.
 
 To use `--suggest` through your OpenClaw agent's configured LLM instead of a
-separate API key, see the `psclawmcp` roadmap item above.
+separate API key, configure `NSCOUT_AI_PROVIDER` in your `.env`.
 
 ## License
 
